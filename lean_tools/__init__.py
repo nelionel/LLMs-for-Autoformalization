@@ -1,3 +1,3 @@
-from .lean_tools.execution import LeanExecution
+from .execution import LeanExecution
 
 __all__ = ['LeanExecution']

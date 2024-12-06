@@ -4,17 +4,22 @@ import json
 import time
 
 class LeanExecution:
-    def __init__(self, project_root, output_dir, max_execution_time=30):
+    def __init__(self, lean_files_dir, output_dir, max_execution_time=30):
         """
         Initialize LeanExecution object.
         
         Args:
-            project_root (str): Path to the Lean project root directory
+            lean_files_dir (str): Directory containing Lean files
             output_dir (str): Path where output files will be stored
             max_execution_time (int): Maximum execution time in seconds for Lean processes
         """
-        self.project_root = os.path.abspath(project_root)
+        self.lean_files_dir = os.path.abspath(lean_files_dir)
         self.output_dir = os.path.abspath(output_dir)
+        self.project_root = os.path.dirname(self.lean_files_dir)
+        
+        if not os.path.exists(os.path.join(self.project_root, 'lakefile.lean')):
+            raise RuntimeError(f"Could not find lakefile.lean in {self.project_root}")
+        
         self.max_execution_time = max_execution_time
         self.console_output = None
         self.interactive_output = None
@@ -24,35 +29,36 @@ class LeanExecution:
         except OSError as e:
             raise RuntimeError(f"Could not create output directory at {self.output_dir}: {e}")
     
-    def run(self, file_path, console_output_path=None, interactive_output_path=None):
+    def run(self, lean_filename, console_output_path=None, interactive_output_path=None):
         """
         Execute a Lean file and store/save its outputs.
         
         Args:
-            file_path (str): Path to the Lean file to execute
-            console_output_path (str, optional): Name of console output file. If provided, will be created in output_dir.
-            interactive_output_path (str, optional): Name of interactive output file. If provided, will be created in output_dir.
+            lean_filename (str): Name of the Lean file (e.g., "New_file.lean")
+            console_output_path (str, optional): Name of console output file
+            interactive_output_path (str, optional): Name of interactive output file
         """
+        file_path = os.path.join(self.lean_files_dir, lean_filename)
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Lean file not found: {file_path}")
         
         try:
             lean_file_abs_path = os.path.abspath(file_path)
             project_root = os.path.abspath(os.path.dirname(os.path.dirname(file_path)))
-            env = self._get_lake_environment(project_root)
+            env = self._get_lake_environment()
             
             start_time = time.time()
             print("Running Lean script: ", end="", flush=True)
             
             # Get console output
-            self.console_output = self._execute_console(lean_file_abs_path, env, project_root, start_time)
+            self.console_output = self._execute_console(lean_file_abs_path, env, start_time)
             if console_output_path is not None:
                 full_console_path = os.path.join(self.output_dir, console_output_path)
                 with open(full_console_path, 'w') as f:
                     f.write(self.console_output)
             
             # Get interactive output
-            self.interactive_output = self._execute_interactive(lean_file_abs_path, env, project_root, start_time)
+            self.interactive_output = self._execute_interactive(lean_file_abs_path, env, start_time)
             if interactive_output_path is not None:
                 full_interactive_path = os.path.join(self.output_dir, interactive_output_path)
                 with open(full_interactive_path, 'w') as f:
@@ -62,14 +68,14 @@ class LeanExecution:
             print(f"\nAn error occurred: {e}")
             raise
     
-    def _get_lake_environment(self, project_root):
+    def _get_lake_environment(self):
         """Get and parse Lake environment variables."""
         lake_env = subprocess.run(
             ['lake', 'env', 'printenv'],
             capture_output=True,
             text=True,
             timeout=30,
-            cwd=project_root
+            cwd=self.project_root
         )
         
         if lake_env.returncode != 0:
@@ -82,7 +88,7 @@ class LeanExecution:
                 env[key] = value
         return env
     
-    def _execute_console(self, file_path, env, project_root, start_time):
+    def _execute_console(self, file_path, env, start_time):
         """Execute Lean file and get console output."""
         process = subprocess.Popen(
             ['lean', '--json', file_path],
@@ -90,7 +96,7 @@ class LeanExecution:
             stderr=subprocess.PIPE,
             text=True,
             env=env,
-            cwd=project_root
+            cwd=self.project_root
         )
         
         try:
@@ -110,7 +116,7 @@ class LeanExecution:
             print(f"\nExecution timed out after {elapsed:.2f} seconds")
             raise
     
-    def _execute_interactive(self, file_path, env, project_root, start_time):
+    def _execute_interactive(self, file_path, env, start_time):
         """Execute Lean file and get interactive output."""
         process = subprocess.Popen(
             ['lake', 'env', 'lean', file_path],
@@ -118,7 +124,7 @@ class LeanExecution:
             stderr=subprocess.PIPE,
             text=True,
             env=env,
-            cwd=project_root
+            cwd=self.project_root
         )
         
         try:
