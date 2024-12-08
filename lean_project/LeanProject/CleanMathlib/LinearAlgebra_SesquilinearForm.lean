@@ -1,0 +1,593 @@
+import Mathlib.LinearAlgebra.BilinearMap
+import Mathlib.LinearAlgebra.Basis.Basic
+variable {R R₁ R₂ R₃ M M₁ M₂ M₃ Mₗ₁ Mₗ₁' Mₗ₂ Mₗ₂' K K₁ K₂ V V₁ V₂ n : Type*}
+namespace LinearMap
+section CommRing
+variable [CommSemiring R] [CommSemiring R₁] [AddCommMonoid M₁] [Module R₁ M₁] [CommSemiring R₂]
+  [AddCommMonoid M₂] [Module R₂ M₂] [AddCommMonoid M] [Module R M]
+  {I₁ : R₁ →+* R} {I₂ : R₂ →+* R} {I₁' : R₁ →+* R}
+def IsOrtho (B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M) (x : M₁) (y : M₂) : Prop :=
+  B x y = 0
+theorem isOrtho_def {B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M} {x y} : B.IsOrtho x y ↔ B x y = 0 :=
+  Iff.rfl
+theorem isOrtho_zero_left (B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M) (x) : IsOrtho B (0 : M₁) x := by
+  dsimp only [IsOrtho]
+  rw [map_zero B, zero_apply]
+theorem isOrtho_zero_right (B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M) (x) : IsOrtho B x (0 : M₂) :=
+  map_zero (B x)
+theorem isOrtho_flip {B : M₁ →ₛₗ[I₁] M₁ →ₛₗ[I₁'] M} {x y} : B.IsOrtho x y ↔ B.flip.IsOrtho y x := by
+  simp_rw [isOrtho_def, flip_apply]
+def IsOrthoᵢ (B : M₁ →ₛₗ[I₁] M₁ →ₛₗ[I₁'] M) (v : n → M₁) : Prop :=
+  Pairwise (B.IsOrtho on v)
+theorem isOrthoᵢ_def {B : M₁ →ₛₗ[I₁] M₁ →ₛₗ[I₁'] M} {v : n → M₁} :
+    B.IsOrthoᵢ v ↔ ∀ i j : n, i ≠ j → B (v i) (v j) = 0 :=
+  Iff.rfl
+theorem isOrthoᵢ_flip (B : M₁ →ₛₗ[I₁] M₁ →ₛₗ[I₁'] M) {v : n → M₁} :
+    B.IsOrthoᵢ v ↔ B.flip.IsOrthoᵢ v := by
+  simp_rw [isOrthoᵢ_def]
+  constructor <;> intro h i j hij
+  · rw [flip_apply]
+    exact h j i (Ne.symm hij)
+  simp_rw [flip_apply] at h
+  exact h j i (Ne.symm hij)
+end CommRing
+section Field
+variable [Field K] [AddCommGroup V] [Module K V] [Field K₁] [AddCommGroup V₁] [Module K₁ V₁]
+  [Field K₂] [AddCommGroup V₂] [Module K₂ V₂]
+  {I₁ : K₁ →+* K} {I₂ : K₂ →+* K} {I₁' : K₁ →+* K} {J₁ : K →+* K} {J₂ : K →+* K}
+theorem ortho_smul_left {B : V₁ →ₛₗ[I₁] V₂ →ₛₗ[I₂] V} {x y} {a : K₁} (ha : a ≠ 0) :
+    IsOrtho B x y ↔ IsOrtho B (a • x) y := by
+  dsimp only [IsOrtho]
+  constructor <;> intro H
+  · rw [map_smulₛₗ₂, H, smul_zero]
+  · rw [map_smulₛₗ₂, smul_eq_zero] at H
+    cases' H with H H
+    · rw [map_eq_zero I₁] at H
+      trivial
+    · exact H
+theorem ortho_smul_right {B : V₁ →ₛₗ[I₁] V₂ →ₛₗ[I₂] V} {x y} {a : K₂} {ha : a ≠ 0} :
+    IsOrtho B x y ↔ IsOrtho B x (a • y) := by
+  dsimp only [IsOrtho]
+  constructor <;> intro H
+  · rw [map_smulₛₗ, H, smul_zero]
+  · rw [map_smulₛₗ, smul_eq_zero] at H
+    cases' H with H H
+    · simp only [map_eq_zero] at H
+      exfalso
+      exact ha H
+    · exact H
+theorem linearIndependent_of_isOrthoᵢ {B : V₁ →ₛₗ[I₁] V₁ →ₛₗ[I₁'] V} {v : n → V₁}
+    (hv₁ : B.IsOrthoᵢ v) (hv₂ : ∀ i, ¬B.IsOrtho (v i) (v i)) : LinearIndependent K₁ v := by
+  classical
+    rw [linearIndependent_iff']
+    intro s w hs i hi
+    have : B (s.sum fun i : n ↦ w i • v i) (v i) = 0 := by rw [hs, map_zero, zero_apply]
+    have hsum : (s.sum fun j : n ↦ I₁ (w j) • B (v j) (v i)) = I₁ (w i) • B (v i) (v i) := by
+      apply Finset.sum_eq_single_of_mem i hi
+      intro j _hj hij
+      rw [isOrthoᵢ_def.1 hv₁ _ _ hij, smul_zero]
+    simp_rw [B.map_sum₂, map_smulₛₗ₂, hsum] at this
+    apply (map_eq_zero I₁).mp
+    exact (smul_eq_zero.mp this).elim _root_.id (hv₂ i · |>.elim)
+end Field
+section Reflexive
+variable [CommSemiring R] [AddCommMonoid M] [Module R M] [CommSemiring R₁] [AddCommMonoid M₁]
+  [Module R₁ M₁] {I₁ : R₁ →+* R} {I₂ : R₁ →+* R} {B : M₁ →ₛₗ[I₁] M₁ →ₛₗ[I₂] M}
+def IsRefl (B : M₁ →ₛₗ[I₁] M₁ →ₛₗ[I₂] M) : Prop :=
+  ∀ x y, B x y = 0 → B y x = 0
+namespace IsRefl
+section
+variable (H : B.IsRefl)
+include H
+theorem eq_zero : ∀ {x y}, B x y = 0 → B y x = 0 := fun {x y} ↦ H x y
+theorem ortho_comm {x y} : IsOrtho B x y ↔ IsOrtho B y x :=
+  ⟨eq_zero H, eq_zero H⟩
+theorem domRestrict (p : Submodule R₁ M₁) : (B.domRestrict₁₂ p p).IsRefl :=
+  fun _ _ ↦ by
+  simp_rw [domRestrict₁₂_apply]
+  exact H _ _
+end
+@[simp]
+theorem flip_isRefl_iff : B.flip.IsRefl ↔ B.IsRefl :=
+  ⟨fun h x y H ↦ h y x ((B.flip_apply _ _).trans H), fun h x y ↦ h y x⟩
+theorem ker_flip_eq_bot (H : B.IsRefl) (h : LinearMap.ker B = ⊥) : LinearMap.ker B.flip = ⊥ := by
+  refine ker_eq_bot'.mpr fun _ hx ↦ ker_eq_bot'.mp h _ ?_
+  ext
+  exact H _ _ (LinearMap.congr_fun hx _)
+theorem ker_eq_bot_iff_ker_flip_eq_bot (H : B.IsRefl) :
+    LinearMap.ker B = ⊥ ↔ LinearMap.ker B.flip = ⊥ := by
+  refine ⟨ker_flip_eq_bot H, fun h ↦ ?_⟩
+  exact (congr_arg _ B.flip_flip.symm).trans (ker_flip_eq_bot (flip_isRefl_iff.mpr H) h)
+end IsRefl
+end Reflexive
+section Symmetric
+variable [CommSemiring R] [AddCommMonoid M] [Module R M] {I : R →+* R} {B : M →ₛₗ[I] M →ₗ[R] R}
+def IsSymm (B : M →ₛₗ[I] M →ₗ[R] R) : Prop :=
+  ∀ x y, I (B x y) = B y x
+namespace IsSymm
+protected theorem eq (H : B.IsSymm) (x y) : I (B x y) = B y x :=
+  H x y
+theorem isRefl (H : B.IsSymm) : B.IsRefl := fun x y H1 ↦ by
+  rw [← H.eq]
+  simp [H1]
+theorem ortho_comm (H : B.IsSymm) {x y} : IsOrtho B x y ↔ IsOrtho B y x :=
+  H.isRefl.ortho_comm
+theorem domRestrict (H : B.IsSymm) (p : Submodule R M) : (B.domRestrict₁₂ p p).IsSymm :=
+  fun _ _ ↦ by
+  simp_rw [domRestrict₁₂_apply]
+  exact H _ _
+end IsSymm
+@[simp]
+theorem isSymm_zero : (0 : M →ₛₗ[I] M →ₗ[R] R).IsSymm := fun _ _ => map_zero _
+theorem isSymm_iff_eq_flip {B : LinearMap.BilinForm R M} : B.IsSymm ↔ B = B.flip := by
+  constructor <;> intro h
+  · ext
+    rw [← h, flip_apply, RingHom.id_apply]
+  intro x y
+  conv_lhs => rw [h]
+  rfl
+end Symmetric
+section Alternating
+section CommSemiring
+section AddCommMonoid
+variable [CommSemiring R] [AddCommMonoid M] [Module R M] [CommSemiring R₁] [AddCommMonoid M₁]
+  [Module R₁ M₁] {I₁ : R₁ →+* R} {I₂ : R₁ →+* R} {I : R₁ →+* R} {B : M₁ →ₛₗ[I₁] M₁ →ₛₗ[I₂] M}
+def IsAlt (B : M₁ →ₛₗ[I₁] M₁ →ₛₗ[I₂] M) : Prop :=
+  ∀ x, B x x = 0
+variable (H : B.IsAlt)
+include H
+theorem IsAlt.self_eq_zero (x : M₁) : B x x = 0 :=
+  H x
+theorem IsAlt.eq_of_add_add_eq_zero [IsCancelAdd M] {a b c : M₁} (hAdd : a + b + c = 0) :
+    B a b = B b c := by
+  have : B a a + B a b + B a c = B a c + B b c + B c c := by
+    simp_rw [← map_add, ← map_add₂, hAdd, map_zero, LinearMap.zero_apply]
+  rw [H, H, zero_add, add_zero, add_comm] at this
+  exact add_left_cancel this
+end AddCommMonoid
+section AddCommGroup
+namespace IsAlt
+variable [CommSemiring R] [AddCommGroup M] [Module R M] [CommSemiring R₁] [AddCommMonoid M₁]
+  [Module R₁ M₁] {I₁ : R₁ →+* R} {I₂ : R₁ →+* R} {I : R₁ →+* R} {B : M₁ →ₛₗ[I₁] M₁ →ₛₗ[I₂] M}
+theorem neg (H : B.IsAlt) (x y : M₁) : -B x y = B y x := by
+  have H1 : B (y + x) (y + x) = 0 := self_eq_zero H (y + x)
+  simp? [map_add, self_eq_zero H] at H1 says
+    simp only [map_add, add_apply, self_eq_zero H, zero_add, add_zero] at H1
+  rw [add_eq_zero_iff_neg_eq] at H1
+  exact H1
+theorem isRefl (H : B.IsAlt) : B.IsRefl := by
+  intro x y h
+  rw [← neg H, h, neg_zero]
+theorem ortho_comm (H : B.IsAlt) {x y} : IsOrtho B x y ↔ IsOrtho B y x :=
+  H.isRefl.ortho_comm
+end IsAlt
+end AddCommGroup
+end CommSemiring
+section Semiring
+variable [CommRing R] [AddCommGroup M] [Module R M] [CommSemiring R₁] [AddCommMonoid M₁]
+  [Module R₁ M₁] {I : R₁ →+* R}
+theorem isAlt_iff_eq_neg_flip [NoZeroDivisors R] [CharZero R] {B : M₁ →ₛₗ[I] M₁ →ₛₗ[I] R} :
+    B.IsAlt ↔ B = -B.flip := by
+  constructor <;> intro h
+  · ext
+    simp_rw [neg_apply, flip_apply]
+    exact (h.neg _ _).symm
+  intro x
+  let h' := congr_fun₂ h x x
+  simp only [neg_apply, flip_apply, ← add_eq_zero_iff_eq_neg] at h'
+  exact add_self_eq_zero.mp h'
+end Semiring
+end Alternating
+end LinearMap
+namespace Submodule
+variable [CommRing R] [CommRing R₁] [AddCommGroup M₁] [Module R₁ M₁] [AddCommGroup M] [Module R M]
+  {I₁ : R₁ →+* R} {I₂ : R₁ →+* R} {B : M₁ →ₛₗ[I₁] M₁ →ₛₗ[I₂] M}
+def orthogonalBilin (N : Submodule R₁ M₁) (B : M₁ →ₛₗ[I₁] M₁ →ₛₗ[I₂] M) : Submodule R₁ M₁ where
+  carrier := { m | ∀ n ∈ N, B.IsOrtho n m }
+  zero_mem' x _ := B.isOrtho_zero_right x
+  add_mem' hx hy n hn := by
+    rw [LinearMap.IsOrtho, map_add, show B n _ = 0 from hx n hn, show B n _ = 0 from hy n hn,
+      zero_add]
+  smul_mem' c x hx n hn := by
+    rw [LinearMap.IsOrtho, LinearMap.map_smulₛₗ, show B n x = 0 from hx n hn, smul_zero]
+variable {N L : Submodule R₁ M₁}
+@[simp]
+theorem mem_orthogonalBilin_iff {m : M₁} : m ∈ N.orthogonalBilin B ↔ ∀ n ∈ N, B.IsOrtho n m :=
+  Iff.rfl
+theorem orthogonalBilin_le (h : N ≤ L) : L.orthogonalBilin B ≤ N.orthogonalBilin B :=
+  fun _ hn l hl ↦ hn l (h hl)
+theorem le_orthogonalBilin_orthogonalBilin (b : B.IsRefl) :
+    N ≤ (N.orthogonalBilin B).orthogonalBilin B := fun n hn _m hm ↦ b _ _ (hm n hn)
+end Submodule
+namespace LinearMap
+section Orthogonal
+variable [Field K] [AddCommGroup V] [Module K V] [Field K₁] [AddCommGroup V₁] [Module K₁ V₁]
+  [AddCommGroup V₂] [Module K V₂] {J : K →+* K} {J₁ : K₁ →+* K} {J₁' : K₁ →+* K}
+theorem span_singleton_inf_orthogonal_eq_bot (B : V₁ →ₛₗ[J₁] V₁ →ₛₗ[J₁'] V₂) (x : V₁)
+    (hx : ¬B.IsOrtho x x) : (K₁ ∙ x) ⊓ Submodule.orthogonalBilin (K₁ ∙ x) B = ⊥ := by
+  rw [← Finset.coe_singleton]
+  refine eq_bot_iff.2 fun y h ↦ ?_
+  rcases mem_span_finset.1 h.1 with ⟨μ, rfl⟩
+  replace h := h.2 x (by simp [Submodule.mem_span] : x ∈ Submodule.span K₁ ({x} : Finset V₁))
+  rw [Finset.sum_singleton] at h ⊢
+  suffices hμzero : μ x = 0 by rw [hμzero, zero_smul, Submodule.mem_bot]
+  rw [isOrtho_def, map_smulₛₗ] at h
+  exact Or.elim (smul_eq_zero.mp h)
+      (fun y ↦ by simpa using y)
+      (fun hfalse ↦ False.elim <| hx hfalse)
+theorem orthogonal_span_singleton_eq_to_lin_ker {B : V →ₗ[K] V →ₛₗ[J] V₂} (x : V) :
+    Submodule.orthogonalBilin (K ∙ x) B = LinearMap.ker (B x) := by
+  ext y
+  simp_rw [Submodule.mem_orthogonalBilin_iff, LinearMap.mem_ker, Submodule.mem_span_singleton]
+  constructor
+  · exact fun h ↦ h x ⟨1, one_smul _ _⟩
+  · rintro h _ ⟨z, rfl⟩
+    rw [isOrtho_def, map_smulₛₗ₂, smul_eq_zero]
+    exact Or.intro_right _ h
+theorem span_singleton_sup_orthogonal_eq_top {B : V →ₗ[K] V →ₗ[K] K} {x : V} (hx : ¬B.IsOrtho x x) :
+    (K ∙ x) ⊔ Submodule.orthogonalBilin (N := K ∙ x) (B := B) = ⊤ := by
+  rw [orthogonal_span_singleton_eq_to_lin_ker]
+  exact (B x).span_singleton_sup_ker_eq_top hx
+theorem isCompl_span_singleton_orthogonal {B : V →ₗ[K] V →ₗ[K] K} {x : V} (hx : ¬B.IsOrtho x x) :
+    IsCompl (K ∙ x) (Submodule.orthogonalBilin (N := K ∙ x) (B := B)) :=
+  { disjoint := disjoint_iff.2 <| span_singleton_inf_orthogonal_eq_bot B x hx
+    codisjoint := codisjoint_iff.2 <| span_singleton_sup_orthogonal_eq_top hx }
+end Orthogonal
+section AdjointPair
+section AddCommMonoid
+variable [CommSemiring R]
+variable [AddCommMonoid M] [Module R M]
+variable [AddCommMonoid M₁] [Module R M₁]
+variable [AddCommMonoid M₂] [Module R M₂]
+variable [AddCommMonoid M₃] [Module R M₃]
+variable {I : R →+* R}
+variable {B F : M →ₗ[R] M →ₛₗ[I] M₃} {B' : M₁ →ₗ[R] M₁ →ₛₗ[I] M₃} {B'' : M₂ →ₗ[R] M₂ →ₛₗ[I] M₃}
+variable {f f' : M →ₗ[R] M₁} {g g' : M₁ →ₗ[R] M}
+variable (B B' f g)
+def IsAdjointPair :=
+  ∀ x y, B' (f x) y = B x (g y)
+variable {B B' f g}
+theorem isAdjointPair_iff_comp_eq_compl₂ : IsAdjointPair B B' f g ↔ B'.comp f = B.compl₂ g := by
+  constructor <;> intro h
+  · ext x y
+    rw [comp_apply, compl₂_apply]
+    exact h x y
+  · intro _ _
+    rw [← compl₂_apply, ← comp_apply, h]
+theorem isAdjointPair_zero : IsAdjointPair B B' 0 0 := fun _ _ ↦ by simp only [zero_apply, map_zero]
+theorem isAdjointPair_id : IsAdjointPair B B 1 1 := fun _ _ ↦ rfl
+theorem IsAdjointPair.add (h : IsAdjointPair B B' f g) (h' : IsAdjointPair B B' f' g') :
+    IsAdjointPair B B' (f + f') (g + g') := fun x _ ↦ by
+  rw [f.add_apply, g.add_apply, B'.map_add₂, (B x).map_add, h, h']
+theorem IsAdjointPair.comp {f' : M₁ →ₗ[R] M₂} {g' : M₂ →ₗ[R] M₁} (h : IsAdjointPair B B' f g)
+    (h' : IsAdjointPair B' B'' f' g') : IsAdjointPair B B'' (f'.comp f) (g.comp g') := fun _ _ ↦ by
+  rw [LinearMap.comp_apply, LinearMap.comp_apply, h', h]
+theorem IsAdjointPair.mul {f g f' g' : Module.End R M} (h : IsAdjointPair B B f g)
+    (h' : IsAdjointPair B B f' g') : IsAdjointPair B B (f * f') (g' * g) :=
+  h'.comp h
+end AddCommMonoid
+section AddCommGroup
+variable [CommRing R]
+variable [AddCommGroup M] [Module R M]
+variable [AddCommGroup M₁] [Module R M₁]
+variable [AddCommGroup M₂] [Module R M₂]
+variable {B F : M →ₗ[R] M →ₗ[R] M₂} {B' : M₁ →ₗ[R] M₁ →ₗ[R] M₂}
+variable {f f' : M →ₗ[R] M₁} {g g' : M₁ →ₗ[R] M}
+theorem IsAdjointPair.sub (h : IsAdjointPair B B' f g) (h' : IsAdjointPair B B' f' g') :
+    IsAdjointPair B B' (f - f') (g - g') := fun x _ ↦ by
+  rw [f.sub_apply, g.sub_apply, B'.map_sub₂, (B x).map_sub, h, h']
+theorem IsAdjointPair.smul (c : R) (h : IsAdjointPair B B' f g) :
+    IsAdjointPair B B' (c • f) (c • g) := fun _ _ ↦ by
+  simp [h _]
+end AddCommGroup
+section OrthogonalMap
+variable {R M : Type*} [CommRing R] [AddCommGroup M] [Module R M]
+  (B : LinearMap.BilinForm R M) (f : Module.End R M)
+def IsOrthogonal : Prop :=
+  ∀ x y, B (f x) (f y) = B x y
+variable {B f}
+@[simp]
+lemma _root_.LinearEquiv.isAdjointPair_symm_iff {f : M ≃ₗ[R] M} :
+    LinearMap.IsAdjointPair B B f f.symm ↔ B.IsOrthogonal f :=
+  ⟨fun hf x y ↦ by simpa using hf x (f y), fun hf x y ↦ by simpa using hf x (f.symm y)⟩
+lemma isOrthogonal_of_forall_apply_same
+    (h : IsLeftRegular (2 : R)) (hB : B.IsSymm) (hf : ∀ x, B (f x) (f x) = B x x) :
+    B.IsOrthogonal f := by
+  intro x y
+  suffices 2 * B (f x) (f y) = 2 * B x y from h this
+  have := hf (x + y)
+  simp only [map_add, add_apply, hf x, hf y, show B y x = B x y from hB.eq y x] at this
+  rw [show B (f y) (f x) = B (f x) (f y) from hB.eq (f y) (f x)] at this
+  simp only [add_assoc, add_right_inj] at this
+  simp only [← add_assoc, add_left_inj] at this
+  simpa only [← two_mul] using this
+end OrthogonalMap
+end AdjointPair
+section SelfadjointPair
+section AddCommMonoid
+variable [CommSemiring R]
+variable [AddCommMonoid M] [Module R M]
+variable [AddCommMonoid M₁] [Module R M₁]
+variable {I : R →+* R}
+variable (B F : M →ₗ[R] M →ₛₗ[I] M₁)
+def IsPairSelfAdjoint (f : Module.End R M) :=
+  IsAdjointPair B F f f
+protected def IsSelfAdjoint (f : Module.End R M) :=
+  IsAdjointPair B B f f
+end AddCommMonoid
+section AddCommGroup
+variable [CommRing R]
+variable [AddCommGroup M] [Module R M] [AddCommGroup M₁] [Module R M₁]
+variable [AddCommGroup M₂] [Module R M₂] (B F : M →ₗ[R] M →ₗ[R] M₂)
+def isPairSelfAdjointSubmodule : Submodule R (Module.End R M) where
+  carrier := { f | IsPairSelfAdjoint B F f }
+  zero_mem' := isAdjointPair_zero
+  add_mem' hf hg := hf.add hg
+  smul_mem' c _ h := h.smul c
+def IsSkewAdjoint (f : Module.End R M) :=
+  IsAdjointPair B B f (-f)
+def selfAdjointSubmodule :=
+  isPairSelfAdjointSubmodule B B
+def skewAdjointSubmodule :=
+  isPairSelfAdjointSubmodule (-B) B
+variable {B F}
+@[simp]
+theorem mem_isPairSelfAdjointSubmodule (f : Module.End R M) :
+    f ∈ isPairSelfAdjointSubmodule B F ↔ IsPairSelfAdjoint B F f :=
+  Iff.rfl
+theorem isPairSelfAdjoint_equiv (e : M₁ ≃ₗ[R] M) (f : Module.End R M) :
+    IsPairSelfAdjoint B F f ↔
+      IsPairSelfAdjoint (B.compl₁₂ ↑e ↑e) (F.compl₁₂ ↑e ↑e) (e.symm.conj f) := by
+  have hₗ :
+    (F.compl₁₂ (↑e : M₁ →ₗ[R] M) (↑e : M₁ →ₗ[R] M)).comp (e.symm.conj f) =
+      (F.comp f).compl₁₂ (↑e : M₁ →ₗ[R] M) (↑e : M₁ →ₗ[R] M) := by
+    ext
+    simp only [LinearEquiv.symm_conj_apply, coe_comp, LinearEquiv.coe_coe, compl₁₂_apply,
+      LinearEquiv.apply_symm_apply, Function.comp_apply]
+  have hᵣ :
+    (B.compl₁₂ (↑e : M₁ →ₗ[R] M) (↑e : M₁ →ₗ[R] M)).compl₂ (e.symm.conj f) =
+      (B.compl₂ f).compl₁₂ (↑e : M₁ →ₗ[R] M) (↑e : M₁ →ₗ[R] M) := by
+    ext
+    simp only [LinearEquiv.symm_conj_apply, compl₂_apply, coe_comp, LinearEquiv.coe_coe,
+      compl₁₂_apply, LinearEquiv.apply_symm_apply, Function.comp_apply]
+  have he : Function.Surjective (⇑(↑e : M₁ →ₗ[R] M) : M₁ → M) := e.surjective
+  simp_rw [IsPairSelfAdjoint, isAdjointPair_iff_comp_eq_compl₂, hₗ, hᵣ, compl₁₂_inj he he]
+theorem isSkewAdjoint_iff_neg_self_adjoint (f : Module.End R M) :
+    B.IsSkewAdjoint f ↔ IsAdjointPair (-B) B f f :=
+  show (∀ x y, B (f x) y = B x ((-f) y)) ↔ ∀ x y, B (f x) y = (-B) x (f y) by simp
+@[simp]
+theorem mem_selfAdjointSubmodule (f : Module.End R M) :
+    f ∈ B.selfAdjointSubmodule ↔ B.IsSelfAdjoint f :=
+  Iff.rfl
+@[simp]
+theorem mem_skewAdjointSubmodule (f : Module.End R M) :
+    f ∈ B.skewAdjointSubmodule ↔ B.IsSkewAdjoint f := by
+  rw [isSkewAdjoint_iff_neg_self_adjoint]
+  exact Iff.rfl
+end AddCommGroup
+end SelfadjointPair
+section Nondegenerate
+section CommSemiring
+variable [CommSemiring R] [AddCommMonoid M] [Module R M] [CommSemiring R₁] [AddCommMonoid M₁]
+  [Module R₁ M₁] [CommSemiring R₂] [AddCommMonoid M₂] [Module R₂ M₂]
+  {I₁ : R₁ →+* R} {I₂ : R₂ →+* R} {I₁' : R₁ →+* R}
+def SeparatingLeft (B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M) : Prop :=
+  ∀ x : M₁, (∀ y : M₂, B x y = 0) → x = 0
+variable (M₁ M₂ I₁ I₂)
+theorem not_separatingLeft_zero [Nontrivial M₁] : ¬(0 : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M).SeparatingLeft :=
+  let ⟨m, hm⟩ := exists_ne (0 : M₁)
+  fun h ↦ hm (h m fun _n ↦ rfl)
+variable {M₁ M₂ I₁ I₂}
+theorem SeparatingLeft.ne_zero [Nontrivial M₁] {B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M}
+    (h : B.SeparatingLeft) : B ≠ 0 := fun h0 ↦ not_separatingLeft_zero M₁ M₂ I₁ I₂ <| h0 ▸ h
+section Linear
+variable [AddCommMonoid Mₗ₁] [AddCommMonoid Mₗ₂] [AddCommMonoid Mₗ₁'] [AddCommMonoid Mₗ₂']
+variable [Module R Mₗ₁] [Module R Mₗ₂] [Module R Mₗ₁'] [Module R Mₗ₂']
+variable {B : Mₗ₁ →ₗ[R] Mₗ₂ →ₗ[R] M} (e₁ : Mₗ₁ ≃ₗ[R] Mₗ₁') (e₂ : Mₗ₂ ≃ₗ[R] Mₗ₂')
+theorem SeparatingLeft.congr (h : B.SeparatingLeft) :
+    (e₁.arrowCongr (e₂.arrowCongr (LinearEquiv.refl R M)) B).SeparatingLeft := by
+  intro x hx
+  rw [← e₁.symm.map_eq_zero_iff]
+  refine h (e₁.symm x) fun y ↦ ?_
+  specialize hx (e₂ y)
+  simp only [LinearEquiv.arrowCongr_apply, LinearEquiv.symm_apply_apply,
+    LinearEquiv.map_eq_zero_iff] at hx
+  exact hx
+@[simp]
+theorem separatingLeft_congr_iff :
+    (e₁.arrowCongr (e₂.arrowCongr (LinearEquiv.refl R M)) B).SeparatingLeft ↔ B.SeparatingLeft :=
+  ⟨fun h ↦ by
+    convert h.congr e₁.symm e₂.symm
+    ext x y
+    simp,
+   SeparatingLeft.congr e₁ e₂⟩
+end Linear
+def SeparatingRight (B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M) : Prop :=
+  ∀ y : M₂, (∀ x : M₁, B x y = 0) → y = 0
+def Nondegenerate (B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M) : Prop :=
+  SeparatingLeft B ∧ SeparatingRight B
+@[simp]
+theorem flip_separatingRight {B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M} :
+    B.flip.SeparatingRight ↔ B.SeparatingLeft :=
+  ⟨fun hB x hy ↦ hB x hy, fun hB x hy ↦ hB x hy⟩
+@[simp]
+theorem flip_separatingLeft {B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M} :
+    B.flip.SeparatingLeft ↔ SeparatingRight B := by rw [← flip_separatingRight, flip_flip]
+@[simp]
+theorem flip_nondegenerate {B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M} : B.flip.Nondegenerate ↔ B.Nondegenerate :=
+  Iff.trans and_comm (and_congr flip_separatingRight flip_separatingLeft)
+theorem separatingLeft_iff_linear_nontrivial {B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M} :
+    B.SeparatingLeft ↔ ∀ x : M₁, B x = 0 → x = 0 := by
+  constructor <;> intro h x hB
+  · simpa only [hB, zero_apply, eq_self_iff_true, forall_const] using h x
+  have h' : B x = 0 := by
+    ext
+    rw [zero_apply]
+    exact hB _
+  exact h x h'
+theorem separatingRight_iff_linear_flip_nontrivial {B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M} :
+    B.SeparatingRight ↔ ∀ y : M₂, B.flip y = 0 → y = 0 := by
+  rw [← flip_separatingLeft, separatingLeft_iff_linear_nontrivial]
+theorem separatingLeft_iff_ker_eq_bot {B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M} :
+    B.SeparatingLeft ↔ LinearMap.ker B = ⊥ :=
+  Iff.trans separatingLeft_iff_linear_nontrivial LinearMap.ker_eq_bot'.symm
+theorem separatingRight_iff_flip_ker_eq_bot {B : M₁ →ₛₗ[I₁] M₂ →ₛₗ[I₂] M} :
+    B.SeparatingRight ↔ LinearMap.ker B.flip = ⊥ := by
+  rw [← flip_separatingLeft, separatingLeft_iff_ker_eq_bot]
+end CommSemiring
+section CommRing
+variable [CommRing R] [AddCommGroup M] [Module R M] [AddCommGroup M₁] [Module R M₁] {I I' : R →+* R}
+theorem IsRefl.nondegenerate_of_separatingLeft {B : M →ₗ[R] M →ₗ[R] M₁} (hB : B.IsRefl)
+    (hB' : B.SeparatingLeft) : B.Nondegenerate := by
+  refine ⟨hB', ?_⟩
+  rw [separatingRight_iff_flip_ker_eq_bot, hB.ker_eq_bot_iff_ker_flip_eq_bot.mp]
+  rwa [← separatingLeft_iff_ker_eq_bot]
+theorem IsRefl.nondegenerate_of_separatingRight {B : M →ₗ[R] M →ₗ[R] M₁} (hB : B.IsRefl)
+    (hB' : B.SeparatingRight) : B.Nondegenerate := by
+  refine ⟨?_, hB'⟩
+  rw [separatingLeft_iff_ker_eq_bot, hB.ker_eq_bot_iff_ker_flip_eq_bot.mpr]
+  rwa [← separatingRight_iff_flip_ker_eq_bot]
+theorem nondegenerate_restrict_of_disjoint_orthogonal {B : M →ₗ[R] M →ₗ[R] M₁} (hB : B.IsRefl)
+    {W : Submodule R M} (hW : Disjoint W (W.orthogonalBilin B)) :
+    (B.domRestrict₁₂ W W).Nondegenerate := by
+  refine (hB.domRestrict W).nondegenerate_of_separatingLeft ?_
+  rintro ⟨x, hx⟩ b₁
+  rw [Submodule.mk_eq_zero, ← Submodule.mem_bot R]
+  refine hW.le_bot ⟨hx, fun y hy ↦ ?_⟩
+  specialize b₁ ⟨y, hy⟩
+  simp_rw [domRestrict₁₂_apply] at b₁
+  rw [hB.ortho_comm]
+  exact b₁
+theorem IsOrthoᵢ.not_isOrtho_basis_self_of_separatingLeft [Nontrivial R]
+    {B : M →ₛₗ[I] M →ₛₗ[I'] M₁} {v : Basis n R M} (h : B.IsOrthoᵢ v) (hB : B.SeparatingLeft)
+    (i : n) : ¬B.IsOrtho (v i) (v i) := by
+  intro ho
+  refine v.ne_zero i (hB (v i) fun m ↦ ?_)
+  obtain ⟨vi, rfl⟩ := v.repr.symm.surjective m
+  rw [Basis.repr_symm_apply, Finsupp.linearCombination_apply, Finsupp.sum, map_sum]
+  apply Finset.sum_eq_zero
+  rintro j -
+  rw [map_smulₛₗ]
+  suffices B (v i) (v j) = 0 by rw [this, smul_zero]
+  obtain rfl | hij := eq_or_ne i j
+  · exact ho
+  · exact h hij
+theorem IsOrthoᵢ.not_isOrtho_basis_self_of_separatingRight [Nontrivial R]
+    {B : M →ₛₗ[I] M →ₛₗ[I'] M₁} {v : Basis n R M} (h : B.IsOrthoᵢ v) (hB : B.SeparatingRight)
+    (i : n) : ¬B.IsOrtho (v i) (v i) := by
+  rw [isOrthoᵢ_flip] at h
+  rw [isOrtho_flip]
+  exact h.not_isOrtho_basis_self_of_separatingLeft (flip_separatingLeft.mpr hB) i
+theorem IsOrthoᵢ.separatingLeft_of_not_isOrtho_basis_self [NoZeroSMulDivisors R M₁]
+    {B : M →ₗ[R] M →ₗ[R] M₁} (v : Basis n R M) (hO : B.IsOrthoᵢ v)
+    (h : ∀ i, ¬B.IsOrtho (v i) (v i)) : B.SeparatingLeft := by
+  intro m hB
+  obtain ⟨vi, rfl⟩ := v.repr.symm.surjective m
+  rw [LinearEquiv.map_eq_zero_iff]
+  ext i
+  rw [Finsupp.zero_apply]
+  specialize hB (v i)
+  simp_rw [Basis.repr_symm_apply, Finsupp.linearCombination_apply, Finsupp.sum, map_sum₂,
+           map_smulₛₗ₂] at hB
+  rw [Finset.sum_eq_single i] at hB
+  · exact (smul_eq_zero.mp hB).elim _root_.id (h i).elim
+  · intro j _hj hij
+    replace hij : B (v j) (v i) = 0 := hO hij
+    rw [hij, RingHom.id_apply, smul_zero]
+  · intro hi
+    replace hi : vi i = 0 := Finsupp.not_mem_support_iff.mp hi
+    rw [hi, RingHom.id_apply, zero_smul]
+theorem IsOrthoᵢ.separatingRight_iff_not_isOrtho_basis_self [NoZeroSMulDivisors R M₁]
+    {B : M →ₗ[R] M →ₗ[R] M₁} (v : Basis n R M) (hO : B.IsOrthoᵢ v)
+    (h : ∀ i, ¬B.IsOrtho (v i) (v i)) : B.SeparatingRight := by
+  rw [isOrthoᵢ_flip] at hO
+  rw [← flip_separatingLeft]
+  refine IsOrthoᵢ.separatingLeft_of_not_isOrtho_basis_self v hO fun i ↦ ?_
+  rw [isOrtho_flip]
+  exact h i
+theorem IsOrthoᵢ.nondegenerate_of_not_isOrtho_basis_self [NoZeroSMulDivisors R M₁]
+    {B : M →ₗ[R] M →ₗ[R] M₁} (v : Basis n R M) (hO : B.IsOrthoᵢ v)
+    (h : ∀ i, ¬B.IsOrtho (v i) (v i)) : B.Nondegenerate :=
+  ⟨IsOrthoᵢ.separatingLeft_of_not_isOrtho_basis_self v hO h,
+    IsOrthoᵢ.separatingRight_iff_not_isOrtho_basis_self v hO h⟩
+end CommRing
+end Nondegenerate
+namespace BilinForm
+lemma apply_smul_sub_smul_sub_eq [CommRing R] [AddCommGroup M] [Module R M]
+    (B : LinearMap.BilinForm R M) (x y : M) :
+    B ((B x y) • x - (B x x) • y) ((B x y) • x - (B x x) • y) =
+      (B x x) * ((B x x) * (B y y) - (B x y) * (B y x)) := by
+  simp only [map_sub, map_smul, sub_apply, smul_apply, smul_eq_mul, mul_sub,
+    mul_comm (B x y) (B x x), mul_left_comm (B x y) (B x x)]
+  abel
+variable [LinearOrderedCommRing R] [AddCommGroup M] [Module R M] (B : LinearMap.BilinForm R M)
+lemma apply_mul_apply_le_of_forall_zero_le (hs : ∀ x, 0 ≤ B x x) (x y : M) :
+    (B x y) * (B y x) ≤ (B x x) * (B y y) := by
+  have aux (x y : M) : 0 ≤ (B x x) * ((B x x) * (B y y) - (B x y) * (B y x)) := by
+    rw [← apply_smul_sub_smul_sub_eq B x y]
+    exact hs (B x y • x - B x x • y)
+  rcases lt_or_le 0 (B x x) with hx | hx
+  · exact sub_nonneg.mp <| nonneg_of_mul_nonneg_right (aux x y) hx
+  · replace hx : B x x = 0 := le_antisymm hx (hs x)
+    rcases lt_or_le 0 (B y y) with hy | hy
+    · rw [mul_comm (B x y), mul_comm (B x x)]
+      exact sub_nonneg.mp <| nonneg_of_mul_nonneg_right (aux y x) hy
+    · replace hy : B y y = 0 := le_antisymm hy (hs y)
+      suffices B x y = - B y x by simpa [this, hx, hy] using mul_self_nonneg (B y x)
+      rw [eq_neg_iff_add_eq_zero]
+      apply le_antisymm
+      · simpa [hx, hy, le_neg_iff_add_nonpos_left] using hs (x - y)
+      · simpa [hx, hy] using hs (x + y)
+lemma apply_sq_le_of_symm (hs : ∀ x, 0 ≤ B x x) (hB : B.IsSymm) (x y : M) :
+    (B x y) ^ 2 ≤ (B x x) * (B y y) := by
+  rw [show (B x y) ^ 2 = (B x y) * (B y x) by rw [sq, ← hB, RingHom.id_apply]]
+  exact apply_mul_apply_le_of_forall_zero_le B hs x y
+lemma not_linearIndependent_of_apply_mul_apply_eq (hp : ∀ x, x ≠ 0 → 0 < B x x)
+    (x y : M) (he : (B x y) * (B y x) = (B x x) * (B y y)) :
+    ¬ LinearIndependent R ![x, y] := by
+  have hz : (B x y) • x - (B x x) • y = 0 := by
+    by_contra hc
+    exact (ne_of_lt (hp ((B x) y • x - (B x) x • y) hc)).symm <|
+      (apply_smul_sub_smul_sub_eq B x y).symm ▸ (mul_eq_zero_of_right ((B x) x)
+      (sub_eq_zero_of_eq he.symm))
+  by_contra hL
+  by_cases hx : x = 0
+  · simpa [hx] using LinearIndependent.ne_zero 0 hL
+  · have h := sub_eq_zero.mpr (sub_eq_zero.mp hz).symm
+    rw [sub_eq_add_neg, ← neg_smul, add_comm] at h
+    exact (Ne.symm (ne_of_lt (hp x hx))) (LinearIndependent.eq_zero_of_pair hL h).2
+lemma apply_mul_apply_lt_iff_linearIndependent [NoZeroSMulDivisors R M]
+    (hp : ∀ x, x ≠ 0 → 0 < B x x) (x y : M) :
+    (B x y) * (B y x) < (B x x) * (B y y) ↔ LinearIndependent R ![x, y] := by
+  have hle : ∀ z, 0 ≤ B z z := by
+    intro z
+    by_cases hz : z = 0; simp [hz]
+    exact le_of_lt (hp z hz)
+  constructor
+  · contrapose!
+    intro h
+    rw [LinearIndependent.pair_iff] at h
+    push_neg at h
+    obtain ⟨r, s, hl, h0⟩ := h
+    by_cases hr : r = 0; · simp_all
+    by_cases hs : s = 0; · simp_all
+    suffices
+        (B (r • x) (r • x)) * (B (s • y) (s • y)) = (B (r • x) (s • y)) * (B (s • y) (r • x)) by
+      simp only [map_smul, smul_apply, smul_eq_mul] at this
+      rw [show r * (r * (B x) x) * (s * (s * (B y) y)) = (r * r * s * s) * ((B x) x * (B y) y) by
+        ring, show s * (r * (B x) y) * (r * (s * (B y) x)) = (r * r * s * s) * ((B x) y * (B y) x)
+        by ring] at this
+      have hrs : r * r * s * s ≠ 0 := by simp [hr, hs]
+      exact le_of_eq <| mul_right_injective₀ hrs this
+    simp [show s • y = - r • x by rwa [neg_smul, ← add_eq_zero_iff_eq_neg']]
+  · contrapose!
+    intro h
+    refine not_linearIndependent_of_apply_mul_apply_eq B hp x y (le_antisymm
+      (apply_mul_apply_le_of_forall_zero_le B hle x y) h)
+lemma apply_sq_lt_iff_linearIndependent_of_symm [NoZeroSMulDivisors R M]
+    (hp : ∀ x, x ≠ 0 → 0 < B x x) (hB: B.IsSymm) (x y : M) :
+    (B x y) ^ 2 < (B x x) * (B y y) ↔ LinearIndependent R ![x, y] := by
+  rw [show (B x y) ^ 2 = (B x y) * (B y x) by rw [sq, ← hB, RingHom.id_apply]]
+  exact apply_mul_apply_lt_iff_linearIndependent B hp x y
+end BilinForm
+end LinearMap

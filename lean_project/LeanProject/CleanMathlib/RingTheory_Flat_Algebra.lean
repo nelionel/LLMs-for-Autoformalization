@@ -1,0 +1,38 @@
+import Mathlib.RingTheory.Flat.Stability
+import Mathlib.LinearAlgebra.TensorProduct.Tower
+universe u v w t
+open Function (Injective Surjective)
+open LinearMap (lsmul rTensor lTensor)
+open TensorProduct
+class Algebra.Flat (R : Type u) (S : Type v) [CommRing R] [CommRing S] [Algebra R S] : Prop where
+  out : Module.Flat R S
+namespace Algebra.Flat
+attribute [instance] out
+instance self (R : Type u) [CommRing R] : Algebra.Flat R R where
+  out := Module.Flat.self R
+variable (R : Type u) (S : Type v) [CommRing R] [CommRing S]
+theorem trans (T : Type w) [CommRing T] [Algebra R S] [Algebra R T] [Algebra S T]
+    [IsScalarTower R S T] [Algebra.Flat R S] [Algebra.Flat S T] : Algebra.Flat R T where
+  out := Module.Flat.trans R S T
+@[deprecated (since := "2024-11-08")] alias comp := trans
+instance baseChange (T : Type w) [CommRing T] [Algebra R S] [Algebra R T] [Algebra.Flat R S] :
+    Algebra.Flat T (T ⊗[R] S) where
+  out := Module.Flat.baseChange R T S
+theorem isBaseChange [Algebra R S] (R' : Type w) (S' : Type t) [CommRing R'] [CommRing S']
+    [Algebra R R'] [Algebra S S'] [Algebra R' S'] [Algebra R S'] [IsScalarTower R R' S']
+    [IsScalarTower R S S'] [h : IsPushout R S R' S'] [Algebra.Flat R R'] : Algebra.Flat S S' where
+  out := Module.Flat.isBaseChange R S R' S' h.out
+end Algebra.Flat
+@[algebraize RingHom.Flat.out]
+class RingHom.Flat {R : Type u} {S : Type v} [CommRing R] [CommRing S] (f : R →+* S) : Prop where
+  out : f.toAlgebra.Flat := by infer_instance
+namespace RingHom.Flat
+attribute [instance] out
+instance identity (R : Type u) [CommRing R] : RingHom.Flat (1 : R →+* R) where
+variable {R : Type u} {S : Type v} {T : Type w} [CommRing R] [CommRing S] [CommRing T]
+  (f : R →+* S) (g : S →+* T)
+instance comp [RingHom.Flat f] [RingHom.Flat g] : RingHom.Flat (g.comp f) where
+  out := by
+    algebraize_only [f, g, g.comp f]
+    exact Algebra.Flat.trans R S T
+end RingHom.Flat
