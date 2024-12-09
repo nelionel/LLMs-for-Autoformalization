@@ -4,8 +4,12 @@ setup.py
 agent_tools/__init__.py
 agent_tools/agents.py
 agent_tools/agent_prompts/__init__.py
+agent_tools/agent_prompts/formalizer copy.txt
 agent_tools/agent_prompts/formalizer.txt
+agent_tools/agent_prompts/formalizer_short.txt
+agent_tools/agent_prompts/parser copy.txt
 agent_tools/agent_prompts/parser.txt
+agent_tools/agent_prompts/parser_short.txt
 agent_tools/agent_prompts/proof_completion.txt
 formalization_tools.egg-info/PKG-INFO
 formalization_tools.egg-info/SOURCES.txt

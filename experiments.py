@@ -1,19 +1,33 @@
-# from lean_tools.execution import LeanExecution
-from agent_tools.agents import ParserAgent, FormalizerAgent
-from langroid.language_models.openai_gpt import OpenAIGPTConfig
-from langroid.agent.chat_agent import ChatAgentConfig
-from langroid.utils.configuration import Settings
+from openai import OpenAI
 from rich import print as rprint
+from agent_tools.agent_prompts import FORMALIZER_PROMPT, PARSER_PROMPT
 
-# lean = LeanExecution("./lean_project/LeanProject", "./lean_project/LeanOutputs")
-# lean.run("Test.lean", 
-#          console_output_path="console_test.txt", 
-#          interactive_output_path="interactive_test_FAILED.txt"
-#          )
+# Initialize the client
+client = OpenAI()  # Will use OPENAI_API_KEY from environment
 
-# print(lean.print_console())
-# print(lean.print_interactive())
+# Create a function to replace ParserAgent
+def parse_proof(proof_text):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": PARSER_PROMPT},  # Use imported prompt
+            {"role": "user", "content": proof_text}
+        ],
+        max_tokens=8000
+    )
+    return response.choices[0].message.content
 
+# Create a function to replace FormalizerAgent
+def formalize_to_lean(parsed_proof):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": FORMALIZER_PROMPT},  # Use imported prompt
+            {"role": "user", "content": parsed_proof}
+        ],
+        max_tokens=8000
+    )
+    return response.choices[0].message.content
 
 # Create the base LLM configuration
 llm_config = OpenAIGPTConfig(
