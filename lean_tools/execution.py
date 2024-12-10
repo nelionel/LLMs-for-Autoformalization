@@ -181,8 +181,8 @@ class LeanExecution:
 
 # Example usage
 if __name__ == "__main__":
-    project_root = "/Users/lonel-emilionichiosa/Desktop/new_formalize"
+    project_root = "~/lean_project/LeanProject/model_answers/responses"
     lean = LeanExecution(project_root, project_root)
     lean.run(
-        "./lean_stuff/LeanStuff/New_file.lean"
+        "./known.lean"
     )
