@@ -4,6 +4,7 @@ import os
 #must be run from the 
 #assumes the prompts folder has many .txt files, and asks the model to finish them
 #saves responses as .lean files in the responses folder
+openai.api_key = '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'
 eval_name = 'ProofNet'
 prompts_dir = 'prompts'
 responses_dir = '../lean_project/LeanProject/API_reponses'
