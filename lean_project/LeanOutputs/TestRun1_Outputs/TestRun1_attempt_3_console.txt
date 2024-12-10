@@ -1,0 +1,1 @@
+{"severity":"warning","pos":{"line":3,"column":8},"kind":"[anonymous]","keepFullRange":false,"fileName":"/Users/lonel-emilionichiosa/Desktop/to_push/lean_project/LeanProject/TestRun1/TestRun1_attempt_3.lean","endPos":{"line":3,"column":17},"data":"declaration uses 'sorry'","caption":""}
