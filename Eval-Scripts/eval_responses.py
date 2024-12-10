@@ -2,7 +2,7 @@ import sys
  
 # appending a path
 sys.path.append('../lean_tools')
-from execution import LeanExecution
+from lean_tools.execution import LeanExecution
 
 outputs_dir = 'API_responses'
 lean = LeanExecution("../lean_project/LeanProject/"+outputs_dir, "../lean_project/LeanProject/"+outputs_dir+"/LeanOutputs")
